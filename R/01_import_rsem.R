@@ -1,3 +1,4 @@
+# Import the data from the files on servidor2-ciberehd.upc.es to an R object
 library("tximport")
 files <- list.files(path = "mapped/rsem", pattern = "*.genes.results",
                     full.names = TRUE)
