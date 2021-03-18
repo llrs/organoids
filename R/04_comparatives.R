@@ -55,10 +55,9 @@ out <- cbind(r, diff, fc, fdr, p, r)
 m <- meta2[, c("cond", "Macrogen SAMPLE NAME", "SAMPLE", "PB", "estimul")] %>%
   arrange(cond, SAMPLE)
 
-# Requests on order First control then PBS then the rest
-new_order <- match(order_samples$cond, m$cond)
-# TODO continue here as this is wrong as the same sample will be 4x.
-m <- m[new_order, ]
+# Requests on order first control then PBS then the rest
+order_samples2 <- cbind(order_samples, SAMPLE = c(602, 604, 605, 607))
+m2 <- merge(order_samples2, m, all = TRUE, sort = FALSE)
 counts <- counts[, match(m$`Macrogen SAMPLE NAME`, colnames(counts))]
 
 # Use normalized data to flatten those outliers and make more reduce the range
