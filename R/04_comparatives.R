@@ -8,7 +8,7 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 
 # On a mail the 2021/03/16, Azu decided to do this comparisons
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
-sub_compar <- compar[c(5:24, 49, 25:39), ]
+sub_compar <- compar[c(5:24, 49, 25:39, 59:61), ]
 
 all(sub_compar$`Referencia comparativa` %in% meta2$cond)
 all(sub_compar$`Variable comparativa` %in% meta2$cond)
@@ -58,15 +58,18 @@ m <- meta2[, c("cond", "Macrogen SAMPLE NAME", "SAMPLE", "PB", "estimul")] %>%
 # Requests on order first control then PBS then the rest
 order_samples2 <- cbind(order_samples, SAMPLE = c(602, 604, 605, 607))
 m2 <- merge(order_samples2, m, all = TRUE, sort = FALSE)
-counts <- counts[, match(m$`Macrogen SAMPLE NAME`, colnames(counts))]
+counts <- counts[, match(m2$`Macrogen SAMPLE NAME`, colnames(counts))]
 
 # Use normalized data to flatten those outliers and make more reduce the range
-cm <- cbind(genes = rownames(counts), integration::norm_RNAseq(counts))
+cn <- integration::norm_RNAseq(counts)
+cn <- apply(cn, 1, scale)
+rownames(cn) <- colnames(counts)
+cm <- cbind(genes = rownames(counts), t(cn))
 write.table(cm, file = "data_out/GETS_matrix.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
 system2("gzip", args = "-kf data_out/GETS_matrix.tsv") # Compress it to upload to website
 write.table(out, file = "data_out/GETS_gene.tsv", quote = FALSE, sep = "\t", row.names = FALSE, na = "")
 system2("gzip", args = "-kf data_out/GETS_gene.tsv") # Compress it to upload to website
-write.table(m,
+write.table(m2,
             file = "data_out/GETS_sample.tsv", quote = FALSE, sep = "\t", row.names = FALSE, na = " ")
 df <- data.frame(type = c("SAMPLEINFO", "SAMPLEINFO", "SAMPLEINFO", "SAMPLEINFO"),
            column = c("PB", "PB", "PB", "SAMPLE"),
