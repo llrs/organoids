@@ -1,4 +1,5 @@
-# Compare the samples according to a file
+# Compare the samples according to a file with Juanjo function
+# Not many differences even accounting for paired data
 library("dplyr")
 source("R/02_functions_juanjo.R")
 compar <- readxl::read_xlsx("data_out/comparatives.xlsx") # Manually made
@@ -8,7 +9,9 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 
 # On a mail the 2021/03/16, Azu decided to do this comparisons
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
-sub_compar <- compar[c(5:24, 49, 25:39, 59:61), ]
+# On 2021/03/22 decided to add comparisons 59:61
+comp <- c(5:24, 49, 25:39, 59:61, 51:54)
+sub_compar <- compar[comp, ]
 
 all(sub_compar$`Referencia comparativa` %in% meta2$cond)
 all(sub_compar$`Variable comparativa` %in% meta2$cond)
@@ -26,10 +29,19 @@ colnames(comp_01) <- paste0(sub_compar$`Referencia comparativa`, "_vs_", sub_com
 rownames(comp_01) <- meta2$`Macrogen SAMPLE NAME`
 
 res <- multilimma(counts, comp_01, "cyclicloess", meta2$SAMPLE)
-
 saveRDS(res, "data_out/limma_juanjo.RDS")
+tr <- make_TestResults(res) # Transform to limma TestResults object to see a summary
+summary(tr)
+res_quantile <- multilimma(counts, comp_01, "quantile", meta2$SAMPLE)
+saveRDS(res_quantile, "data_out/limma_paired_quantile.RDS")
 
+res_unparied_cyclicloess <- multilimma(counts, comp_01, "cyclicloess")
+saveRDS(res_unparied_cyclicloess, "data_out/limma_unpaired_cyclicloess.RDS")
+res_unparied_quantile <- multilimma(counts, comp_01, "quantile")
+saveRDS(res_unparied_quantile, "data_out/limma_unpaired_quantile.RDS")
 
+# GETS ####
+# * Create matrix for significance ####
 diff <- matrix(dimnames = dimnames(res$fc), ncol = ncol(res$fc), nrow = nrow(res$fc))
 diff[res$p < 0.05 & res$fc > 0] <- "UP"
 diff[res$p < 0.05 & res$fc < 0] <- "DW"
@@ -38,6 +50,8 @@ diff[res$fdr < 0.05 & res$fc < 0] <- "DDW"
 
 
 colnames(diff) <- gsub("fc_", "sign_", colnames(diff))
+
+# * Number the comparisons ####
 add_comparative <- function(comp, mat) {
   colnames(mat) <- paste0("c", comp, "_", colnames(mat))
   mat
@@ -47,11 +61,15 @@ diff <- add_comparative(sub_compar$`Número comparativa`, diff)
 p <- add_comparative(sub_compar$`Número comparativa`, res$p)
 fdr <- add_comparative(sub_compar$`Número comparativa`, res$fdr)
 fc <- add_comparative(sub_compar$`Número comparativa`, res$fc)
+
+# * Prepare gene information ####
 r <- t(simplify2array(strsplit(rownames(diff), "\\.[0-9]+_")))
 colnames(r) <- c("Ensembl", "name")
 rownames(r) <- rownames(diff)
 
+# Append gene information
 out <- cbind(r, diff, fc, fdr, p, r)
+
 m <- meta2[, c("cond", "Macrogen SAMPLE NAME", "SAMPLE", "PB", "estimul")] %>%
   arrange(cond, SAMPLE)
 
@@ -62,9 +80,16 @@ counts <- counts[, match(m2$`Macrogen SAMPLE NAME`, colnames(counts))]
 
 # Use normalized data to flatten those outliers and make more reduce the range
 cn <- integration::norm_RNAseq(counts)
+# Scale can be done with GETS or in R.
+# Scale by median
+# cn <- cn - apply(cn, 1, median)
+# cm <- cbind(genes = rownames(counts), cn)
+# Scale by scaling and centering
 cn <- apply(cn, 1, scale)
 rownames(cn) <- colnames(counts)
 cm <- cbind(genes = rownames(counts), t(cn))
+
+# * Export data in the right format for GETS ####
 write.table(cm, file = "data_out/GETS_matrix.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
 system2("gzip", args = "-kf data_out/GETS_matrix.tsv") # Compress it to upload to website
 write.table(out, file = "data_out/GETS_gene.tsv", quote = FALSE, sep = "\t", row.names = FALSE, na = "")
