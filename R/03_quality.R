@@ -1,3 +1,6 @@
+# Look at the quality of the data: library size and PCA
+# No batch effects but sample 604 is different
+# After talking with Aida is the only one that it is a biopsy, the other 3 are cirugy.
 library("tidyr")
 library("plyr")
 library("dplyr")
