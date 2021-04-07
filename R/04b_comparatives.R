@@ -9,7 +9,8 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 # On a mail the 2021/03/16, Azu decided to do this comparisons
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
 # On 2021/03/22 decided to add comparisons 59:61
-comp <- c(5:24, 49, 25:39, 59:61, 51:54)
+# Adding Comparison 55 on 2021/03/25
+comp <- c(5:24, 49, 25:39, 59:61, 55, 51:54)
 sub_compar <- compar[comp, ]
 
 stopifnot(all(sub_compar$`Referencia comparativa` %in% meta$cond))
@@ -179,11 +180,16 @@ mc3 <- makeContrasts("INFg_vs_INFg+TNFa" = INFg - INFg.TNFa,
 stopifnot("Not all comparisons included" = all(colnames(mc3) == colnames(cm)))
 corfit <- duplicateCorrelation(cpm, design = mm_complex2, block = meta$SAMPLE)
 fit_c2 <- lmFit(cpm, design = mm_complex2, block = meta$SAMPLE, correlation = corfit$consensus.correlation)
+fit_c2b <- lmFit(cpm, design = mm_complex2)
 
 # Section 9.7 of limma user guide
 fit2_c2 <- contrasts.fit(fit_c2, mc3)
 fit3_c2 <- eBayes(fit2_c2)
 sdt_c2 <- summary(decideTests(fit3_c2))
+
+fit2_c2b <- contrasts.fit(fit_c2b, mc3)
+fit3_c2b <- eBayes(fit2_c2b)
+sdt_c2b <- summary(decideTests(fit3_c2b))
 
 # Compare multiple methods ####
 # Check samples picked  up
