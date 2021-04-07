@@ -1,3 +1,4 @@
+# Functions adapted from Juanjo Lozano  to make plots etc
 library("ggbiplot")
 library("edgeR")
 
@@ -85,7 +86,6 @@ multilimma <- function(xdat, classes, nmethod, paired = NULL) {
     ### norm step
     y <- DGEList(myxdat)
     y <- calcNormFactors(y)
-
     pdf(paste("data_out/QC_", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
     on.exit({if (length(dev.list()) >= 2) dev.off()})
     v <- voom(y, normalize.method = nmethod, plot = TRUE) # v$E <-normalised matrix
@@ -102,9 +102,9 @@ multilimma <- function(xdat, classes, nmethod, paired = NULL) {
     plot(BaseMean, Log2R, main = colnames(classes)[i], cex = 0.3)
     abline(h = 0, lwd = 2, col = "blue")
     # to speed only most 1000 genes
-    sel1000 <- order(apply(norm, 1, var), decreasing = TRUE)
+    vars <- apply(norm, 1, var)
+    sel1000 <- order(vars, decreasing = TRUE)[1:1000]
     plotPCA(t(norm[sel1000, ]), factor(myclassx))
-
     fc[, i] <- l2fc(Log2R)
     if (!is.null(paired)) {
       stopifnot(length(paired[nona]) == length(myclassx))
@@ -191,4 +191,17 @@ extractPC123 <- function(mydata) {
   colnames(df.u) <- c("PC1", "PC2", "PC3")
   rownames(df.u) <- rownames(mydata)
   return(df.u)
+}
+
+make_TestResults <- function(x) {
+  s_fc <- sign(x$fc)
+  s_fc[x$fdr > 0.05] <- 0
+  colnames(s_fc) <- gsub("^fc_", "", colnames(s_fc))
+  class(s_fc) <-  "TestResults"
+  s_fc
+}
+
+
+samples_contrasts <- function(mod, contrasts) {
+  mod %*% contrasts
 }
