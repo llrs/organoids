@@ -10,7 +10,8 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 # On a mail the 2021/03/16, Azu decided to do this comparisons
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
 # On 2021/03/22 decided to add comparisons 59:61
-comp <- c(5:24, 49, 25:39, 59:61, 51:54)
+# Adding Comparison 55 on 2021/03/25
+comp <- c(5:24, 49, 25:39, 59:61, 55, 51:54)
 sub_compar <- compar[comp, ]
 
 all(sub_compar$`Referencia comparativa` %in% meta2$cond)
@@ -31,14 +32,14 @@ rownames(comp_01) <- meta2$`Macrogen SAMPLE NAME`
 res <- multilimma(counts, comp_01, "cyclicloess", meta2$SAMPLE)
 saveRDS(res, "data_out/limma_juanjo.RDS")
 tr <- make_TestResults(res) # Transform to limma TestResults object to see a summary
-summary(tr)
-res_quantile <- multilimma(counts, comp_01, "quantile", meta2$SAMPLE)
-saveRDS(res_quantile, "data_out/limma_paired_quantile.RDS")
-
-res_unparied_cyclicloess <- multilimma(counts, comp_01, "cyclicloess")
-saveRDS(res_unparied_cyclicloess, "data_out/limma_unpaired_cyclicloess.RDS")
-res_unparied_quantile <- multilimma(counts, comp_01, "quantile")
-saveRDS(res_unparied_quantile, "data_out/limma_unpaired_quantile.RDS")
+# summary(tr)
+# res_quantile <- multilimma(counts, comp_01, "quantile", meta2$SAMPLE)
+# saveRDS(res_quantile, "data_out/limma_paired_quantile.RDS")
+#
+# res_unparied_cyclicloess <- multilimma(counts, comp_01, "cyclicloess")
+# saveRDS(res_unparied_cyclicloess, "data_out/limma_unpaired_cyclicloess.RDS")
+# res_unparied_quantile <- multilimma(counts, comp_01, "quantile")
+# saveRDS(res_unparied_quantile, "data_out/limma_unpaired_quantile.RDS")
 
 # GETS ####
 # * Create matrix for significance ####
