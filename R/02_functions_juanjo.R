@@ -205,3 +205,42 @@ make_TestResults <- function(x) {
 samples_contrasts <- function(mod, contrasts) {
   mod %*% contrasts
 }
+
+
+# Classes must be a matrix with each column being a comparative with:
+# 1 as reference and 2 as the other samples
+# paired can be a vector with the name/factor of the paired samples
+multiRankProd <- function(xdat, classes, nmethod, paired = NULL) {
+  stopifnot(ncol(xdat) == nrow(classes))
+  # nmethod=
+  # cyclicloess
+  # none
+  # quantile
+
+  l <- vector("list", ncol(classes))
+  for (i in seq_len(ncol(classes))) {
+    nona <- which(!is.na(classes[, i]))
+    myclassx <- na.omit(classes[, i])
+    myxdat <- xdat[, nona]
+    ### norm step
+    y <- DGEList(myxdat)
+    y <- calcNormFactors(y)
+    pdf(paste("data_out/QC_rankProd", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
+    on.exit({if (length(dev.list()) >= 2) dev.off()})
+    v <- voom(y, normalize.method = nmethod, plot = TRUE) # v$E <-normalised matrix
+
+    message(i, " ", colnames(classes)[i])
+    print(table(classes[, i]))
+
+    norm <- v$E
+
+    # Assume paired samples are on the same order
+    norm2 <- norm[, which(myclassx == 2)] - norm[, which(myclassx == 1)]
+    RP <- RankProducts(norm2, rep(1, ncol(norm2)), logged = TRUE, plot = TRUE, na.rm = FALSE,
+                 rand = 246, gene.names = rownames(norm))
+    l[[i]] <- RP
+    dev.off()
+  }
+  names(l) <- names(classes)
+  l
+}
