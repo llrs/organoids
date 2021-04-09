@@ -11,8 +11,22 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
 # On 2021/03/22 decided to add comparisons 59:61
 # Adding Comparison 55 on 2021/03/25
+# reordering comparisons on 2021/05/08
 comp <- c(5:24, 49, 25:39, 59:61, 55, 51:54)
-sub_compar <- compar[comp, ]
+comp1 <- c(24, 23, 21, 22, 49, 55, 61:59, # PBS
+           19, 18, 16, 20, 17, # PBK
+           14, 13, 11, 15, 12, #PBNissel
+           9, 8, 6, 10, 7, # PBSth
+           36, 31, 26, # aTNF
+           38, 33, 28, # FLA
+           37, 32, 27, # IL1B
+           35, 30, 25, 5, #INFg
+           39, 34, 29,# INFg+TNFa
+           54:51 # Controls
+           )
+stopifnot("44 comparatives" = length(comp1) == 44,
+          "Each comparative only once" = length(unique(table(comp1))) == 1)
+sub_compar <- compar[comp1, ]
 
 all(sub_compar$`Referencia comparativa` %in% meta2$cond)
 all(sub_compar$`Variable comparativa` %in% meta2$cond)
@@ -32,6 +46,54 @@ rownames(comp_01) <- meta2$`Macrogen SAMPLE NAME`
 res <- multilimma(counts, comp_01, "cyclicloess", meta2$SAMPLE)
 saveRDS(res, "data_out/limma_juanjo.RDS")
 tr <- make_TestResults(res) # Transform to limma TestResults object to see a summary
+
+mRP <- multiRankProd(counts, comp_01, "cyclicloess", meta2$SAMPLE)
+saveRDS(mRP, "data_out/rankprod_paired.RDS")
+
+genes <- strsplit(rownames(mRP[[1]][[1]]), "\\.[0-9]+_")
+genes <- t(simplify2array(genes))
+colnames(genes) <- c("ENSEMBL", "name")
+res_RP <- lapply(mRP, function(x) {
+  y <- x$pval
+  colnames(y) <- paste0("p.val_", colnames(y))
+  y2 <- apply(y, 2, p.adjust, method = "fdr")
+  colnames(y2) <- paste0("fdr_", colnames(y2))
+  o <- cbind(x$AveFC, y2, y)
+  colnames(o)[1] <- "fc_"
+  o
+  })
+cond <- paste0(sub_compar$`Referencia comparativa`, "_vs_",
+               sub_compar$`Variable comparativa`)
+for (i in seq_along(res_RP)) {
+  colnames(res_RP[[i]]) <- paste0("c",sub_compar$`Número comparativa`[i], "_", colnames(res_RP[[i]]), cond[i])
+}
+sign_fc <- fc <- matrix(ncol = length(res_RP), nrow = nrow(res_RP[[1]]))
+p.val <- p.adj <- matrix(ncol = length(res_RP)*2, nrow = nrow(res_RP[[1]]))
+
+colnames(fc) <- seq_len(ncol(fc))
+colnames(sign_fc) <- seq_len(ncol(sign_fc))
+colnames(p.val) <- seq_len(ncol(p.val))
+colnames(p.adj) <- seq_len(ncol(p.adj))
+for (i in seq_along(res_RP)) {
+  fc[, i] <- res_RP[[i]][, 1]
+  colnames(fc)[i] <- colnames(res_RP[[i]])[1]
+  sign_fc[, i] <- ifelse(res_RP[[i]][, 4] < 0.05 & res_RP[[i]][, 5] > 0.05, "UP",
+                         ifelse(res_RP[[i]][, 5] < 0.05 & res_RP[[i]][, 4] > 0.05, "DW",
+                                ifelse(res_RP[[i]][, 2] < 0.05, "UUP",
+                                       ifelse(res_RP[[i]][, 3] < 0.05, "DW", NA))))
+  colnames(sign_fc)[i] <- gsub("_fc_", "_sign_", colnames(res_RP[[i]])[1])
+  # The strange i*2 is to account for 2 columns
+  cols <- c(i*2 - 1, i*2)
+  p.adj[, cols] <- res_RP[[i]][, 2:3]
+  colnames(p.adj)[cols] <- colnames(res_RP[[i]])[2:3]
+  p.val[, cols] <- res_RP[[i]][, 4:5]
+  colnames(p.val)[cols] <- colnames(res_RP[[i]])[4:5]
+}
+
+o <- cbind.data.frame(genes, sign_fc, fc, genes)
+write.table(o, file = "data_out/GETS_gene_RankProd.tsv", quote = FALSE, sep = "\t", row.names = FALSE, na = "")
+system2("gzip", args = "-kf data_out/GETS_gene_RankProd.tsv") # Compress it to upload to website
+
 # summary(tr)
 # res_quantile <- multilimma(counts, comp_01, "quantile", meta2$SAMPLE)
 # saveRDS(res_quantile, "data_out/limma_paired_quantile.RDS")
