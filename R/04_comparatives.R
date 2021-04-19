@@ -12,16 +12,18 @@ order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually
 # On 2021/03/22 decided to add comparisons 59:61
 # Adding Comparison 55 on 2021/03/25
 # reordering comparisons on 2021/05/08
+# On 16/04/2021 The PBS should be on the comparisons of the estimulated cells
+# Manually added on comparisons.xlsx to be included here
 comp <- c(5:24, 49, 25:39, 59:61, 55, 51:54)
 comp1 <- c(24, 23, 21, 22, 49, 55, 61:59, # PBS
            19, 18, 16, 20, 17, # PBK
            14, 13, 11, 15, 12, #PBNissel
            9, 8, 6, 10, 7, # PBSth
-           36, 31, 26, # aTNF
-           38, 33, 28, # FLA
-           37, 32, 27, # IL1B
-           35, 30, 25, 5, #INFg
-           39, 34, 29,# INFg+TNFa
+           62:64, # aTNF
+           65:67, # FLA
+           68:70, # IL1B
+           71:74, #INFg
+           75:77,# INFg+TNFa
            54:51 # Controls
            )
 stopifnot("44 comparatives" = length(comp1) == 44,
@@ -40,8 +42,9 @@ for (comp in seq_along(l)) {
 }
 
 comp_01 <- simplify2array(l)
-colnames(comp_01) <- paste0(sub_compar$`Referencia comparativa`, "_vs_", sub_compar$`Variable comparativa`)
+colnames(comp_01) <- paste0(sub_compar$`Variable comparativa`, "_vs_", sub_compar$`Referencia comparativa`)
 rownames(comp_01) <- meta2$`Macrogen SAMPLE NAME`
+saveRDS(comp_01, "data_out/samples_comparisons.RDS")
 
 res <- multilimma(counts, comp_01, "cyclicloess", meta2$SAMPLE)
 saveRDS(res, "data_out/limma_juanjo.RDS")
