@@ -56,7 +56,7 @@ plotPCA <- function(xmat, gg) {
   )
 
 
-  print(g)
+  g
 }
 
 # Classes must be a matrix with each column being a comparative with:
