@@ -92,88 +92,112 @@ comp_name3 <- "PBK12_vs_PBS"
 c1 <- sel_genes(diff, comp_name)
 c2 <- sel_genes(diff, comp_name2)
 c3 <- sel_genes(diff, comp_name3)
-length(unique(c(c1, c2, c3)))
-g <- unique(c(setdiff(c1, c2), setdiff(c2, c3), setdiff(c1, c3)))
 
-comps <- c(comp_name, comp_name2, comp_name3)
-s <- colnames(res$fc) %in% paste0("fc_", comps)
-df2 <- res$fc[g, s]
-col_fun <- colorRamp2(c(-10, 0, 10), c("blue", "white", "red"))
+g <- unique(c(c1, c2, c3)) # Genes DEG in any
+g1 <- unique(c(setdiff(c1, c2), setdiff(c2, c3), setdiff(c1, c3))) # Genes DEG in two
+g3 <- intersect(intersect(c1, c2), c3) # Genes DEG in the three
 
-h_fc <- Heatmap(df2,
-        show_row_names = FALSE,
-        column_title = paste("Genes differential expressed on postbiotics vs PBS"),
-        column_labels = gsub("fc_", "", colnames(df2)),
-        column_names_rot = 0,
-        column_names_centered = TRUE,
-        row_names_gp = gpar(fontsize = 8),
-        col = col_fun,
-        heatmap_legend_param = list(title = "fc"))
 
-png("Figures/heatmap_postbiotics_PBS_different_comparatives.png")
-h_fc
-dev.off()
+make_heatmaps <- function(g, name) {
+  comps <- c(comp_name, comp_name2, comp_name3)
+  s <- colnames(res$fc) %in% paste0("fc_", comps)
+  df2 <- res$fc[g, s]
+  col_fun <- colorRamp2(c(-10, 0, 10), c("blue", "white", "red"))
 
-sel <- apply(comp[, comps], 1, function(x){any(!is.na(x))})
-samples_diff <- names(sel)[sel]
-cn_scaled <- t(apply(cn[g, samples_diff], 1, scale))
-colnames(cn_scaled) <- colnames(cn[, samples_diff])
-df <- meta[meta$`Macrogen SAMPLE NAME` %in% samples_diff, c("cond", "SAMPLE"), drop = FALSE]
-df$SAMPLE <- as.factor(df$SAMPLE)
-ha <- HeatmapAnnotation(df = as.data.frame(df), show_annotation_name = FALSE,
-                        name = "Condition", which = "column",
-                        col = list("SAMPLE" = c("602" = "black",
-                                                "604" = "yellow",
-                                                "605" = "green",
-                                                "607" = "orange")))
-hms <- Heatmap(cn_scaled,
-               top_annotation = ha,
-               show_row_names = FALSE,
-               column_title = paste("Genes differential expressed on postbiotics vs PBS"),
-               row_names_gp = gpar(fontsize = 8),
-               heatmap_legend_param = list(title = "Z"))
-png("Figures/heatmap_postbiotics_PBS_different.png")
-hms
-dev.off()
+  h_fc <- Heatmap(df2,
+                  show_row_names = FALSE,
+                  column_title = paste("Genes differential expressed on postbiotics vs PBS"),
+                  column_labels = gsub("fc_", "", colnames(df2)),
+                  column_names_rot = 0,
+                  column_names_centered = TRUE,
+                  row_names_gp = gpar(fontsize = 8),
+                  col = col_fun,
+                  heatmap_legend_param = list(title = "fc"))
 
-# Filtering for those genes not DEG on PBS vs controls
-comp_name4 <- "PBS_vs_Control"
-c4 <- sel_genes(diff, comp_name4)
-g2 <- setdiff(g, c4)
+  png(paste0("Figures/", name,"_comparatives.png"))
+  print(h_fc)
+  dev.off()
 
-df2 <- res$fc[g2, s]
-h_fc <- Heatmap(df2,
-                show_row_names = FALSE,
-                column_title = paste("Genes differential expressed on postbiotics vs PBS"),
-                column_labels = gsub("fc_", "", colnames(df2)),
-                column_names_rot = 0,
-                column_names_centered = TRUE,
-                row_names_gp = gpar(fontsize = 8),
-                col = col_fun,
-                heatmap_legend_param = list(title = "fc"))
+  sel <- apply(comp[, comps], 1, function(x){any(!is.na(x))})
+  samples_diff <- names(sel)[sel]
+  cn_scaled <- t(apply(cn[g, samples_diff], 1, scale))
+  colnames(cn_scaled) <- colnames(cn[, samples_diff])
+  df <- meta[meta$`Macrogen SAMPLE NAME` %in% samples_diff, c("cond", "SAMPLE", "Macrogen SAMPLE NAME"), drop = FALSE]
+  df <- df %>%
+    mutate(cond = factor(cond, levels = c("PBS", "PBK12", "PBNissle", "PBSth"))) %>%
+    rename(sample = `Macrogen SAMPLE NAME`) %>%
+    arrange(cond, SAMPLE, sample)
 
-png("Figures/heatmap_postbiotics_PBS_different_comparatives_filtered.png")
-h_fc
-dev.off()
+  cn_scaled <- cn_scaled[, match(df$sample, colnames(cn_scaled))]
+  ha <- HeatmapAnnotation(df = as.data.frame(df[, -3]), show_annotation_name = FALSE,
+                          name = "Condition", which = "column",
+                          col = list("SAMPLE" = c("602" = "black",
+                                                  "604" = "yellow",
+                                                  "605" = "green",
+                                                  "607" = "orange")))
+  hms <- Heatmap(cn_scaled,
+                 top_annotation = ha,
+                 show_row_names = FALSE,
+                 column_title = paste("Genes differential expressed on postbiotics vs PBS"),
+                 row_names_gp = gpar(fontsize = 8),
+                 show_column_names = FALSE,
+                 cluster_columns = FALSE,
+                 heatmap_legend_param = list(title = "Z"))
+  png(paste0("Figures/", name, "_samples.png"))
+  print(hms)
+  dev.off()
 
-sel <- apply(comp[, comps], 1, function(x){any(!is.na(x))})
-samples_diff <- names(sel)[sel]
-cn_scaled <- t(apply(cn[g2, samples_diff], 1, scale))
-colnames(cn_scaled) <- colnames(cn[, samples_diff])
-df <- meta[meta$`Macrogen SAMPLE NAME` %in% samples_diff, c("cond", "SAMPLE"), drop = FALSE]
-df$SAMPLE <- as.factor(df$SAMPLE)
-ha <- HeatmapAnnotation(df = as.data.frame(df), show_annotation_name = FALSE,
-                        name = "Condition", which = "column",
-                        col = list("SAMPLE" = c("602" = "black",
-                                                "604" = "yellow",
-                                                "605" = "green",
-                                                "607" = "orange")))
-hms <- Heatmap(cn_scaled,
-               top_annotation = ha,
-               show_row_names = FALSE,
-               column_title = paste("Genes differential expressed on postbiotics vs PBS"),
-               row_names_gp = gpar(fontsize = 8),
-               heatmap_legend_param = list(title = "Z"))
-png("Figures/heatmap_postbiotics_PBS_different_filtered.png")
-hms
-dev.off()
+  # Filtering for those genes not DEG on PBS vs controls
+  comp_name4 <- "PBS_vs_Control"
+  c4 <- sel_genes(diff, comp_name4)
+  g2 <- setdiff(g, c4)
+
+  df2 <- res$fc[g2, s]
+  h_fc <- Heatmap(df2,
+                  show_row_names = FALSE,
+                  column_title = paste("Genes differential expressed on postbiotics vs PBS"),
+                  column_labels = gsub("fc_", "", colnames(df2)),
+                  column_names_rot = 0,
+                  column_names_centered = TRUE,
+                  row_names_gp = gpar(fontsize = 8),
+                  col = col_fun,
+                  heatmap_legend_param = list(title = "fc"))
+
+  png(paste0("Figures/", name, "_comparatives_filtered.png"))
+  print(h_fc)
+  dev.off()
+
+  sel <- apply(comp[, comps], 1, function(x){any(!is.na(x))})
+  samples_diff <- names(sel)[sel]
+  cn_scaled <- t(apply(cn[g2, samples_diff], 1, scale))
+  colnames(cn_scaled) <- colnames(cn[, samples_diff])
+  df <- meta[meta$`Macrogen SAMPLE NAME` %in% samples_diff, c("cond", "SAMPLE", "Macrogen SAMPLE NAME"), drop = FALSE]
+  df <- df %>%
+    mutate(cond = factor(cond, levels = c("PBS", "PBK12", "PBNissle", "PBSth"))) %>%
+    rename(sample = `Macrogen SAMPLE NAME`) %>%
+    arrange(cond, SAMPLE, sample)
+
+  cn_scaled <- cn_scaled[, match(df$sample, colnames(cn_scaled))]
+
+  ha <- HeatmapAnnotation(df = as.data.frame(df[, -3]), show_annotation_name = FALSE,
+                          name = "Condition", which = "column",
+                          col = list("SAMPLE" = c("602" = "black",
+                                                  "604" = "yellow",
+                                                  "605" = "green",
+                                                  "607" = "orange")))
+  hms <- Heatmap(cn_scaled,
+                 top_annotation = ha,
+                 show_row_names = FALSE,
+                 column_title = paste("Genes differential expressed on postbiotics vs PBS"),
+                 row_names_gp = gpar(fontsize = 8),
+                 show_column_names = FALSE,
+                 cluster_columns = FALSE,
+                 heatmap_legend_param = list(title = "Z"))
+  png(paste0("Figures/", name, "_samples_filtered.png"))
+  print(hms)
+  dev.off()
+}
+
+make_heatmaps(g, "heatmap_genes_diff_any")
+make_heatmaps(g1, "heatmap_genes_diff_2")
+make_heatmaps(g3, "heatmap_genes_diff_3")

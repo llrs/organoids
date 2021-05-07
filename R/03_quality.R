@@ -73,9 +73,6 @@ plotPCA(t(sva_combat), ifelse(!is.na(meta2$estimul), "Estímul", "No estímul"))
 plotPCA(t(sva_combat), as.character(meta2$SAMPLE)) + labs(title = "Without sample effect")
 plotPCA(t(sva_combat), meta2$PB) + labs(title = "Without sample effect")
 data.pca <- prcomp(t(sva_combat), scale. = TRUE)
-ggbiplot(data.pca, groups = as.character(meta2$SAMPLE), var.axes = FALSE, ellipse = TRUE, circle = FALSE,
-         labels = colnames(sva_combat)) +
-  theme_minimal() + labs(title = "Without sample effect")
 dev.off()
 
 # Adding PCAs 2021/05/03 based on TO_DO Potsti2D_bioinfo
@@ -108,6 +105,42 @@ meta3$name <- meta3$`Macrogen SAMPLE NAME`
 
 for (e in unique(meta3$estimul)) {
   keep2 <- meta3$estimul %in% e
+  if (e == "PBS") {
+    next
+  }
+  a <- plotPCA(tsc[meta3$name[keep2], ], meta3$cond[keep2]) +
+    labs(title = paste("Without sample effect, ", e), col = "Condició")
+  print(a)
+}
+dev.off()
+
+pdf("Figures/PCAs_estimul_PB_estímul_PBS.pdf")
+meta2$e2 <- sub("\\+PBS", "", meta2$estimul)
+meta2$e2[meta2$e2 == "" ] <- NA
+keep <- (meta2$PBS | !is.na(meta2$PB)) & !(meta2$PBS & is.na(meta2$estimul)) & !(!is.na(meta2$PB) & is.na(meta2$estimul)) & meta2$estimul != "PBS"
+plotPCA(tsc[keep, ], meta2$cond[keep]) + labs(title = "Without sample effect")
+meta3 <- meta2[keep, ]
+meta3$name <- meta3$`Macrogen SAMPLE NAME`
+
+for (e in unique(meta3$e2)) {
+  keep2 <- meta3$e2 %in% e
+  if (e == "PBS") {
+    next
+  }
+  a <- plotPCA(tsc[meta3$name[keep2], ], meta3$cond[keep2]) +
+    labs(title = paste("Without sample effect, ", e), col = "Condició")
+  print(a)
+}
+dev.off()
+
+pdf("Figures/PCAs_PBS_PB.pdf")
+keep <- (!is.na(meta2$PB) & is.na(meta2$estimul)) | meta2$cond == "PBS"
+plotPCA(tsc[keep, ], meta2$cond[keep]) + labs(title = "Without sample effect")
+meta3 <- meta2[keep, ]
+meta3$name <- meta3$`Macrogen SAMPLE NAME`
+
+for (e in unique(meta3$PB)) {
+  keep2 <- meta3$cond %in% e | meta3$cond == "PBS"
   if (e == "PBS") {
     next
   }
