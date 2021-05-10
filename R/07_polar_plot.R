@@ -51,7 +51,8 @@ polar_graph <- function(i, raw, title = NULL) {
            col = "State", shape = "State") +
       theme(panel.grid = element_line(colour = "gray"),
             axis.text.x = element_text(hjust = 0, vjust = 0, face = "bold"),
-            axis.title.y = element_text(angle = 0))
+            axis.title.y = element_text(angle = 0),
+            axis.line = element_blank())
 
   } else {
     NULL
@@ -59,9 +60,19 @@ polar_graph <- function(i, raw, title = NULL) {
   }
 }
 
+names(raw) <- c("cocktel", "cocktel+K12", "cocktel+Nissel", "cocktel+Sther", "FLA", "IL1B",
+                "ILIB+K12", "INFg", "INFg+K12", "INFg+Nissel", "INFg+Sther",
+                "TNF", "TNF+K12", "TNF+Nissel", "TNF+Sther")
 l <- lapply(seq_along(raw), polar_graph, raw)
+names(l) <- names(raw)
 k <- sapply(l, is.null)
 l2 <- l[!k]
+
+for (p in seq_along(l2)) {
+  png(paste0("Figures/polar_plot_", names(l2)[[p]], ".png"))
+  print(l2[[p]])
+  dev.off()
+}
 
 l2[[1]] + l2[[2]] +
 l2[[3]] + l2[[4]] +
