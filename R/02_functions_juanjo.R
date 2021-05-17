@@ -86,7 +86,7 @@ multilimma <- function(xdat, classes, nmethod, paired = NULL) {
     ### norm step
     y <- DGEList(myxdat)
     y <- calcNormFactors(y)
-    pdf(paste("data_out/QC_", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
+    pdf(paste("output/QC_", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
     on.exit({if (length(dev.list()) >= 2) dev.off()})
     v <- voom(y, normalize.method = nmethod, plot = TRUE) # v$E <-normalised matrix
 
@@ -225,7 +225,7 @@ multiRankProd <- function(xdat, classes, nmethod, paired = NULL) {
     ### norm step
     y <- DGEList(myxdat)
     y <- calcNormFactors(y)
-    pdf(paste("data_out/QC_rankProd", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
+    pdf(paste("output/QC_rankProd", colnames(classes)[i], "_", nmethod, ".pdf", sep = ""))
     on.exit({if (length(dev.list()) >= 2) dev.off()})
     v <- voom(y, normalize.method = nmethod, plot = TRUE) # v$E <-normalised matrix
 

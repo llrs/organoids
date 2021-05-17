@@ -60,7 +60,8 @@ polar_graph <- function(i, raw, title = NULL) {
   }
 }
 
-names(raw) <- c("cocktel", "cocktel+K12", "cocktel+Nissel", "cocktel+Sther", "FLA", "IL1B",
+# Fix cocktail+Sther upstream name
+names(raw) <- c("cocktail", "cocktel+K12", "cocktel+Nissle", "cocktail+Sther", "FLA", "IL1B",
                 "ILIB+K12", "INFg", "INFg+K12", "INFg+Nissel", "INFg+Sther",
                 "TNF", "TNF+K12", "TNF+Nissel", "TNF+Sther")
 l <- lapply(seq_along(raw), polar_graph, raw)

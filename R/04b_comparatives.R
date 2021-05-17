@@ -1,10 +1,10 @@
 # Make comparisons as I would do them (defining contrast and design matrices)
 library("dplyr")
 library("limma")
-compar <- readxl::read_xlsx("data_out/comparatives.xlsx") # Manually made
-meta <- readRDS("data_out/pheno.RDS")
-counts <- readRDS("data_out/counts.RDS")
-order_samples <- readxl::read_xlsx("data_out/ordre samples.xlsx") # Azu manually made
+compar <- readxl::read_xlsx("output/comparatives.xlsx") # Manually made
+meta <- readRDS("output/pheno.RDS")
+counts <- readRDS("output/counts.RDS")
+order_samples <- readxl::read_xlsx("output/ordre samples.xlsx") # Azu manually made
 
 # On a mail the 2021/03/16, Azu decided to do this comparisons
 # Adding missing comparison 49 on 2021/03/17 and placing it right after the PBS_vs_*
@@ -215,13 +215,13 @@ resum_multilimma <- t(summary(tr)) %>%
   as.data.frame() %>%
   pivot_wider(names_from = Var2, values_from = Freq)
 View(resum_multilimma, "juanjo")
-write.csv(resum_multilimma, "data_out/resum_multilimma_aparellat.csv",
+write.csv(resum_multilimma, "output/resum_multilimma_aparellat.csv",
           row.names = FALSE)
 resum_limma_aparellat_9.7 <- t(sdt_c2) %>%
   as.data.frame() %>%
   pivot_wider(names_from = Var2, values_from = Freq)
 View(resum_limma_aparellat_9.7, "complex2")
-write.csv(resum_limma_aparellat_9.7, "data_out/resum_limma_aparellat_9.7.csv",
+write.csv(resum_limma_aparellat_9.7, "output/resum_limma_aparellat_9.7.csv",
           row.names = FALSE)
 l <- lapply(colnames(mc3), topTable, fit = fit3_c2, number = Inf)
 logFC <- aveExpr <- ts <- p <- fdr <- matrix(nrow = nrow(cpm), ncol = length(l),

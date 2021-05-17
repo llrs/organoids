@@ -25,7 +25,7 @@ meta2 <- fill(meta, c(1, 2)) %>%
   ungroup() %>%
   mutate(estimul = ifelse(!nzchar(estimul), NA, estimul))
 
-saveRDS(meta2, "data_out/pheno.RDS")
+saveRDS(meta2, "output/pheno.RDS")
 
 # Reorder samples to match pheno data
 counts <- counts[, match(meta2$`Macrogen SAMPLE NAME`, colnames(counts))]
@@ -46,7 +46,7 @@ gb <- getBM(attributes = c("ensembl_gene_id", "gene_biotype"),
             values = list(r[, 1], "protein_coding"),
             mart = ensembl)
 counts4 <- counts3[which(r[, 1] %in% gb$ensembl_gene_id), ]
-saveRDS(counts4, "data_out/counts.RDS")
+saveRDS(counts4, "output/counts.RDS")
 
 # Plots
 png("Figures/library_size.png")
@@ -78,6 +78,8 @@ dev.off()
 # Adding PCAs 2021/05/03 based on TO_DO Potsti2D_bioinfo
 tsc <- t(sva_combat)
 meta2$PBS <- grepl("PBS$", meta2$cond)
+
+theme_set(theme_minimal())
 
 pdf("Figures/PCAs_PBS_estímul_PBS.pdf")
 keep <- !is.na(meta2$estimul) & meta2$PBS
@@ -142,6 +144,24 @@ meta3$name <- meta3$`Macrogen SAMPLE NAME`
 for (e in unique(meta3$PB)) {
   keep2 <- meta3$cond %in% e | meta3$cond == "PBS"
   if (e == "PBS") {
+    next
+  }
+  a <- plotPCA(tsc[meta3$name[keep2], ], meta3$cond[keep2]) +
+    labs(title = paste("Without sample effect, ", e), col = "Condició")
+  print(a)
+}
+dev.off()
+
+# Adding a PCA as asked on 17/05/2021:
+pdf("Figures/PCAs_estimul_PBS_estimul.pdf")
+keep <- !is.na(meta2$estimul) & meta2$cond != "PBS" & is.na(meta2$PB)
+plotPCA(tsc[keep, ], meta2$cond[keep]) + labs(title = "Without sample effect")
+meta3 <- meta2[keep, ]
+meta3$name <- meta3$`Macrogen SAMPLE NAME`
+
+for (e in unique(meta3$estimul)) {
+  keep2 <- meta3$cond %in% e | meta3$cond == paste0(e, "+PBS")
+  if (endsWith(e, "PBS")) {
     next
   }
   a <- plotPCA(tsc[meta3$name[keep2], ], meta3$cond[keep2]) +

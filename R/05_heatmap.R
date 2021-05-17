@@ -2,10 +2,10 @@
 library("dplyr")
 library("ComplexHeatmap")
 library("circlize")
-res <- readRDS("data_out/limma_juanjo.RDS")
-counts <- readRDS("data_out/counts.RDS")
-comp <- readRDS("data_out/samples_comparisons.RDS")
-meta <- readRDS("data_out/pheno.RDS")
+res <- readRDS("output/limma_juanjo.RDS")
+counts <- readRDS("output/counts.RDS")
+comp <- readRDS("output/samples_comparisons.RDS")
+meta <- readRDS("output/pheno.RDS")
 
 # * Create matrix for significance ####
 diff <- matrix(dimnames = dimnames(res$fc), ncol = ncol(res$fc), nrow = nrow(res$fc))
