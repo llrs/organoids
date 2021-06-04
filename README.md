@@ -9,3 +9,4 @@ Raw data (fasq.gz) is on:
  - Seagate SSD
 
 Data processed and logging of script can be found at output/rnaseq_rsem_organoid_amayorgas.tar.gz
+Data from biopsies from the antiTNF project can be found on data/voom.RNAseq.data.all.cal.noduplications.tsv.gz
