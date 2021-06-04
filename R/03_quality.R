@@ -169,3 +169,24 @@ for (e in unique(meta3$estimul)) {
   print(a)
 }
 dev.off()
+
+
+# Adding a PCA asked on 25/05/2021:
+pdf("Figures/PCAs_estimul_PBS_estimul_i_PBS_sample.pdf")
+keep <- (!is.na(meta2$estimul) & !is.na(meta2$PB)) | (!is.na(meta2$estimul) & !is.na(meta2$PBS)) | meta2$cond == "PBS"
+meta2$SAMPLE <- as.character(meta2$SAMPLE)
+plotPCA(tsc[keep, ], meta2$SAMPLE[keep]) + labs(title = "Without sample effect", col = "Sample")
+meta3 <- meta2[keep, ]
+meta3$name <- meta3$`Macrogen SAMPLE NAME`
+
+for (e in unique(meta3$e2)) {
+  keep2 <- (meta3$e2 %in% e | meta3$cond == "PBS") & meta3$cond != e
+  if (endsWith(e, "PBS")) {
+    next
+  }
+  a <- plotPCA(tsc[meta3$name[keep2], ], meta3$SAMPLE[keep2]) +
+    labs(title = paste("Without sample effect, ", e), col = "Sample")
+  print(a)
+}
+dev.off()
+
