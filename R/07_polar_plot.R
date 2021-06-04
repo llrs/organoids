@@ -17,8 +17,6 @@ add0 <- function(x) {
   rbind(y, x)
 }
 
-
-
 polar_graph <- function(i, raw, title = NULL) {
   title <- ifelse(is.null(title), names(raw)[i], title )
   data_plot <- raw[[i]] %>%
