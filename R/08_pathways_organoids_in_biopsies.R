@@ -104,8 +104,7 @@ paste0("c", comp, "_")
 
 com <- paste0(compar$`Variable comparativa`, "_vs_", compar$`Referencia comparativa`)
 com2 <- paste0("c", compar$`Número comparativa`, "_sign_", com)
-which(gsub("fc_", "", colnames(r$fc)) %in% com)
-# TODO select genes UP, etc and then  make heatmaps on the next section
+
 g1 <- categ_fc(r$p[, 1], r$fdr[, 1], r$fc[, 1], 0)
 g2 <- categ_fc(r$p[, 2], r$fdr[, 2], r$fc[, 2], 0)
 g3 <- categ_fc(r$p[, 3], r$fdr[, 3], r$fc[, 3], 0)
