@@ -3,14 +3,18 @@
 # biopsies
 library("limma")
 library("readxl")
-library("dplyr")
 library("stringr")
 library("purrr")
 library("ggplot2")
 library("lubridate")
 library("EnsDb.Hsapiens.v86")
+library("dplyr")
+library("tidyr")
 library("fgsea")
 library("ComplexHeatmap")
+library("fgsea")
+library("GSVA")
+trimVer <- integration::trimVer
 
 # RNAseq ####
 db <- readxl::read_xls("data/bd_BCN_tnf_biopsies_110119.xls", na = "n.a.")
@@ -21,18 +25,31 @@ db2 <- db[db$Sample_id %in% colnames(rna), ]
 # Clean unnecessary rows
 keep_cols <- c(colnames(db2)[1:13], colnames(db2)[20:58])
 db2 <- unique(db2[, keep_cols])
-#Same metadata than samples
+
+#Same metadata than samples ####
 stopifnot(nrow(db2) == ncol(rna))
 db2 <- db2[match(db2$Sample_id, colnames(rna)), ]
 
+disease_progress <- db2 %>%
+  filter(IBD != "ctrl") %>%
+  select(Pacient_id, Ulcers, week, IBD) %>%
+  droplevels() %>%
+  pivot_wider(names_from = week, values_from = Ulcers) %>%
+  mutate(Responder = ifelse(`0` == "yes" & `14` == "no", "R", "NR")) %>%
+  select(Pacient_id, IBD, Responder)
+
+db2 <- disease_progress %>%
+  left_join(db2) %>%
+  mutate(Week = ifelse(db_colon_cd$week == 0, "0", "14/46"))
+
 # Show samples by disease, location and ulcers
 db2 %>%
-  count(Ulcers, sample_location, IBD) %>%
-  arrange(sample_location, IBD, Ulcers) %>%
-  dplyr::select(sample_location, IBD, Ulcers, n)
+  count(Ulcers, sample_location, week, IBD) %>%
+  arrange(sample_location, IBD, week, Ulcers) %>%
+  dplyr::select(sample_location, IBD, week, Ulcers, n)
 
 # Limit to protein coding genes
-genes <- integration::trimVer(rownames(rna))
+genes <- trimVer(rownames(rna))
 meta_genes <- AnnotationDbi::select(EnsDb.Hsapiens.v86, keys = genes,
                        keytype = "GENEID",
                        columns = c("SYMBOL", "GENEBIOTYPE"))
@@ -41,10 +58,12 @@ meta_genes2 <- merge(raw_genes, meta_genes, by.x = "genes", by.y = "GENEID", all
 rna <- rna[meta_genes2$GENEBIOTYPE %in% "protein_coding", ]
 
 # Split the data by sample location
-db_ileum <- db2[db2$sample_location == "ileum" & db2$IBD != "ctrl", ]
-db_colon_cd <- db2[db2$sample_location != "ileum" & db2$IBD == "CD", ]
-db_colon_uc <- db2[db2$sample_location != "ileum" & db2$IBD == "UC", ]
+db_ileum <- db2[db2$sample_location == "ileum" & db2$week == "0", ]
+db_colon <- db2[db2$sample_location == "colon" & db2$week == "0", ]
+db_colon_cd <- db_colon[db_colon$IBD == "CD", ]
+db_colon_uc <- db_colon[db_colon$IBD == "UC", ]
 rna_ileum <- rna[ , db_ileum$Sample_id]
+rna_colon <- rna[ , db_colon$Sample_id]
 rna_colon_cd <- rna[ , db_colon_cd$Sample_id]
 rna_colon_uc <- rna[ , db_colon_uc$Sample_id]
 
@@ -53,6 +72,7 @@ remove_unvariant <- function(x) {
 }
 
 rna_ileum <- remove_unvariant(rna_ileum)
+rna_colon <- remove_unvariant(rna_colon)
 rna_colon_cd <- remove_unvariant(rna_colon_cd)
 rna_colon_uc <- remove_unvariant(rna_colon_uc)
 
@@ -96,11 +116,6 @@ a <- read_xlsx("output/comparatives_v13.xlsx", skip = 5)
 compar <- readxl::read_xlsx("output/comparatives.xlsx") # Manually made
 comp <- c(24, 23, 21, 22, 49, 55)
 compar <- compar[comp, ]
-paste0("c", comp, "_")
-# cocktail
-  c24_sign_FLA+PBS_vs_PBS	c23_sign_IL1b+PBS_vs_PBS	c21_sign_INFg+PBS_vs_PBS	c22_sign_TNFa+PBS_vs_PBS	c49_sign_INFg+TNFa_vs_PBS	c55_sign_INFg+TNFa+PBS_vs_PBS
-
-  )
 
 com <- paste0(compar$`Variable comparativa`, "_vs_", compar$`Referencia comparativa`)
 com2 <- paste0("c", compar$`Número comparativa`, "_sign_", com)
@@ -111,24 +126,11 @@ g3 <- categ_fc(r$p[, 3], r$fdr[, 3], r$fc[, 3], 0)
 g4 <- categ_fc(r$p[, 4], r$fdr[, 4], r$fc[, 4], 0)
 g5 <- categ_fc(r$p[, 5], r$fdr[, 5], r$fc[, 5], 0)
 g6 <- categ_fc(r$p[, 6], r$fdr[, 6], r$fc[, 6], 0)
-g1e <- trimVer(a[, com2[1], drop = TRUE])
 
-# Check that it is the same as from excel files
-names(g1) <- NULL
-g1[g1 == ""] <- NA
-ts <- table(g1e, g1, useNA = "ifany" )
-diag(ts) <- 0
-stopifnot(all(ts == 0))
-
-# 2021/06/04 Azu: heatmap antiTNF week 0 & week 4/46 responders with regulated genes for each stimuli
+# 2021/06/04 Azu: heatmap antiTNF week 0 & week 14/46 responders with regulated genes for each stimuli
 # heatmap antiTNF ####
 meta_genes_excel_org <- a[, c("genes", "Ensembl...122", "name...123")]
 genes_excel_org <- as.matrix(a[, com2])
-
-db2 %>% dplyr::select(IBD, Sample_id, Ulcers, sample_location, week)
-db_colon_cd$Week <- ifelse(db_colon_cd$week == 0, "0", "14/46")
-db_colon_uc$Week <- ifelse(db_colon_uc$week == 0, "0", "14/46")
-db_ileum$Week <- ifelse(db_ileum$week == 0, "0", "14/46")
 
 plot_heat <- function(mat, db, title, file_head) {
   for (i in 1:6) {
@@ -138,9 +140,10 @@ plot_heat <- function(mat, db, title, file_head) {
     mat_norm <- sweep(mat, 1, mat_median)
     # heatmap(rna_colon_cd_norm[trimVer(rownames(rna_colon_cd)) %in% genes_of_interest, ])
 
-    ha <- HeatmapAnnotation(df = as.data.frame(db[, c("Ulcers", "Week")]),
+    ha <- HeatmapAnnotation(df = as.data.frame(db[, c("Ulcers", "week", "Responder")]),
                             col = list(Ulcers = c("yes" = "red", "no" = "green"),
-                                       Week = c("0" = "brown", "14/46" = "blue")))
+                                       Responder = c("R" = "pink", "NR" = "gray"),
+                                       week = c("0" = "brown", "14" = "blue", "46" = "darkblue")))
     png(paste0("Figures/", file_head, "heatmap_antiTNF_genes_organoids_", com[i], ".png"))
     h <- Heatmap(mat_norm[trimVer(rownames(mat)) %in% genes_of_interest, ],
                  show_row_names = FALSE, show_column_names = FALSE,
@@ -151,6 +154,93 @@ plot_heat <- function(mat, db, title, file_head) {
   }
 }
 
-plot_heat(rna_ileum, db_ileum, "on ileum CD", "ileum_CD_")
-plot_heat(rna_colon_cd, db_colon_cd, "on colon CD", "colon_CD_")
-plot_heat(rna_colon_uc, db_colon_uc, "on colon UC", "colon_UC_")
+plot_heat(rna_ileum, db_ileum, "on ileum CD", "20210609_ileum_CD_")
+plot_heat(rna_colon_cd, db_colon_cd, "on colon CD", "20210609_colon_CD_")
+plot_heat(rna_colon_uc, db_colon_uc, "on colon UC", "20210609_colon_UC_")
+
+
+# 2021/06/08 Summarize the content of the plots, but only from colon.
+# Sort samples according to week and ulcers.
+meta_genes_excel_org$genes_ver <- gsub("(ENSG[0-9]*.[0-9]+).+", "\\1", meta_genes_excel_org$genes)
+
+diff_organoids <- list(g1, g2, g3, g4, g5, g6)
+names(diff_organoids) <- com
+diff_organoids <- lapply(diff_organoids, function(x, meta){
+  diff <- names(x)[x != ""]
+  meta[, 2, drop = TRUE][meta$genes %in% diff]
+}, meta = meta_genes_excel_org)
+g_organoids <- unique(unlist(diff_organoids, FALSE, FALSE))
+
+
+g <- strcapture("(^(ENSG[0-9]*).[0-9]+)", rownames(rna_colon),
+           proto = data.frame(ensembl_ver = character(), ensembl = character()))
+
+g_colon <- g[g$ensembl %in% g_organoids, ]
+rna_colon_org <- rna_colon[g_colon$ensembl_ver, ]
+rownames(rna_colon_org) <- g_colon$ensembl
+
+gsva_colon <- gsva(as.matrix(rna_colon_org), diff_organoids)
+
+db_colon <- arrange(db_colon, Responder, Week, Ulcers, IBD, Gender)
+
+col_ann <- list(Ulcers = c("yes" = "red", "no" = "green"),
+                Responder = c("R" = "pink", "NR" = "black"),
+                IBD = c("UC" = "darkgreen", "CD" = "blue"),
+                week = c("0" = "brown", "14" = "blue", "46" = "darkblue"),
+                Week = c("0" = "brown", "14/46" = "blue"))
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[, c("Ulcers", "IBD", "Responder")]),
+                             col = col_ann)
+png("Figures/heatmap_GSVA_antiTNF_colon_all_genes_organoids.png")
+Heatmap(gsva_colon[ , db_colon$Sample_id],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE,
+        top_annotation = top_ann, column_title = "GSVA colon",
+        name = "GSVA")
+dev.off()
+
+png("Figures/heatmap_GSVA_antiTNF_colon_uc_genes_organoids.png")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[db_colon$IBD == "UC",
+                                                         c("Ulcers", "week", "Responder")]),
+                             col = col_ann)
+Heatmap(gsva_colon[ , db_colon$Sample_id[db_colon$IBD == "UC"]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon UC; GSVA",
+        name = "GSV")
+dev.off()
+
+png("Figures/heatmap_GSVA_antiTNF_colon_cd_genes_organoids.png")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[db_colon$IBD == "CD",
+                                                         c("Ulcers", "Responder")]),
+                             col = col_ann)
+Heatmap(gsva_colon[ , db_colon$Sample_id[db_colon$IBD == "CD"]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon CD; GSVA",
+        name = "GSV")
+dev.off()
+
+
+
+# On 2021/06/09 Summarize but not using GSVA plot every gene that is present
+db_colon <- arrange(db_colon, week, Ulcers, IBD, Responder, Gender)
+
+png("Figures/heatmap_antiTNF_colon_uc_genes_organoids.png")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[db_colon$IBD == "UC", c("Ulcers")]),
+                             col = col_ann)
+Heatmap(rna_colon_org[ , db_colon$Sample_id[db_colon$IBD == "UC"]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE, show_row_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon UC w0",
+        name = "norm. expr.")
+dev.off()
+
+png("Figures/heatmap_antiTNF_colon_cd_genes_organoids.png")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[db_colon$IBD == "CD", c("Ulcers")]),
+                             col = col_ann)
+Heatmap(rna_colon_org[ , db_colon$Sample_id[db_colon$IBD == "CD"]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE, show_row_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon CD w0",
+        name = "norm. expr.")
+dev.off()
