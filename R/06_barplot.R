@@ -6,10 +6,10 @@ library("dplyr")
 library("ggplot2")
 library("ggpubr")
 library("rstatix")
-res <- readRDS("data_out/limma_juanjo.RDS")
-counts <- readRDS("data_out/counts.RDS")
-comp <- readRDS("data_out/samples_comparisons.RDS")
-meta <- readRDS("data_out/pheno.RDS")
+res <- readRDS("output/limma_juanjo.RDS")
+counts <- readRDS("output/counts.RDS")
+comp <- readRDS("output/samples_comparisons.RDS")
+meta <- readRDS("output/pheno.RDS")
 
 # * Create matrix for significance ####
 diff <- matrix(dimnames = dimnames(res$fc), ncol = ncol(res$fc), nrow = nrow(res$fc))
@@ -32,7 +32,7 @@ g <- t(simplify2array(g))
 colnames(g) <- c("ENSEMBL", "name")
 g <- cbind(genes = genes, g)
 names_genes <- c("IL10RA", "CD160", "FABP6", "TLR6", "CD274", "KYNU",
-                 "ASCL2", "SERPINI1", "MSX2", "SIRT2", "C2", "C1R", "BEST4")
+                 "ASCL2", "SERPINI1", "MSX2", "SIRT2", "C2", "C1R", "BEST4", "ORC1", "RIMBP3")
 sel <- g[g[, "name"] %in% names_genes, ]
 
 counts_df <- as.data.frame(cn[ sel[, 1], samples]) %>%
@@ -108,3 +108,8 @@ counts_df %>%
   theme(legend.position = "bottom", legend.direction = "horizontal")
 ggsave("Figures/bars_genes_signif_macros.png")
 
+counts_df %>%
+  mutate(cond = if_else(cond == "PBS", "vehicle", cond)) %>%
+  mutate(cond = forcats::fct_relevel(cond, c("vehicle", "PBK12", "PBNissle", "PBSth"))) %>%
+  select(name.y, value, rowname, cond, SAMPLE) %>%
+  writexl::write_xlsx("output/valors_bars_genes_signif_macros.xlsx")
