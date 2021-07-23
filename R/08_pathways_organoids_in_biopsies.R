@@ -18,11 +18,12 @@ trimVer <- integration::trimVer
 
 # RNAseq ####
 db <- readxl::read_xls("data/bd_BCN_tnf_biopsies_110119.xls", na = "n.a.")
+# Using this data as there shouldn't be no problem with w0
 conn <- gzfile("data/voom.RNAseq.data.all.cal.noduplications.tsv.gz")
 rna <- read.table(conn, sep = "\t", check.names = FALSE)
 rna <- rna[ , !grepl(" reseq$", colnames(rna))] # Remove as said
 db2 <- db[db$Sample_id %in% colnames(rna), ]
-# Clean unnecessary rows
+# Clean unnecessary columns
 keep_cols <- c(colnames(db2)[1:13], colnames(db2)[20:58])
 db2 <- unique(db2[, keep_cols])
 
@@ -30,17 +31,10 @@ db2 <- unique(db2[, keep_cols])
 stopifnot(nrow(db2) == ncol(rna))
 db2 <- db2[match(db2$Sample_id, colnames(rna)), ]
 
-disease_progress <- db2 %>%
-  filter(IBD != "ctrl") %>%
-  select(Pacient_id, Ulcers, week, IBD) %>%
-  droplevels() %>%
-  pivot_wider(names_from = week, values_from = Ulcers) %>%
-  mutate(Responder = ifelse(`0` == "yes" & `14` == "no", "R", "NR")) %>%
-  select(Pacient_id, IBD, Responder)
-
-db2 <- disease_progress %>%
-  left_join(db2) %>%
-  mutate(Week = ifelse(db_colon_cd$week == 0, "0", "14/46"))
+db2 <- mutate(db2, Week = case_when(week == 0 & IBD != "ctrl" ~ "0",
+                                    week != 0 & IBD != "ctrl" ~ "14/46",
+                                    IBD == "ctrl" ~ "ctrl",
+                                    TRUE ~ NA_character_))
 
 # Show samples by disease, location and ulcers
 db2 %>%
@@ -58,8 +52,8 @@ meta_genes2 <- merge(raw_genes, meta_genes, by.x = "genes", by.y = "GENEID", all
 rna <- rna[meta_genes2$GENEBIOTYPE %in% "protein_coding", ]
 
 # Split the data by sample location
-db_ileum <- db2[db2$sample_location == "ileum" & db2$week == "0", ]
-db_colon <- db2[db2$sample_location == "colon" & db2$week == "0", ]
+db_ileum <- db2[db2$sample_location == "ileum" & db2$week %in% c("0", "ctrl"), ]
+db_colon <- db2[db2$sample_location == "colon" & db2$week %in% c("0", "ctrl"), ]
 db_colon_cd <- db_colon[db_colon$IBD == "CD", ]
 db_colon_uc <- db_colon[db_colon$IBD == "UC", ]
 rna_ileum <- rna[ , db_ileum$Sample_id]
@@ -127,9 +121,16 @@ g4 <- categ_fc(r$p[, 4], r$fdr[, 4], r$fc[, 4], 0)
 g5 <- categ_fc(r$p[, 5], r$fdr[, 5], r$fc[, 5], 0)
 g6 <- categ_fc(r$p[, 6], r$fdr[, 6], r$fc[, 6], 0)
 
+sign_comp <- cbind(g1, g2, g3, g4, g5, g6)
+colnames(sign_comp) <- com
+k <- apply(sign_comp, 1, function(x){any(x != "")})
+sign_comp_org <- sign_comp[k, ]
+
 # 2021/06/04 Azu: heatmap antiTNF week 0 & week 14/46 responders with regulated genes for each stimuli
 # heatmap antiTNF ####
 meta_genes_excel_org <- a[, c("genes", "Ensembl...122", "name...123")]
+colnames(meta_genes_excel_org) <- c("genes", "Ensembl", "name")
+rownames(sign_comp_org) <- meta_genes_excel_org$Ensembl[match(rownames(sign_comp_org), meta_genes_excel_org$genes)]
 genes_excel_org <- as.matrix(a[, com2])
 
 plot_heat <- function(mat, db, title, file_head) {
@@ -163,9 +164,9 @@ plot_heat(rna_colon_uc, db_colon_uc, "on colon UC", "20210609_colon_UC_")
 # Sort samples according to week and ulcers.
 meta_genes_excel_org$genes_ver <- gsub("(ENSG[0-9]*.[0-9]+).+", "\\1", meta_genes_excel_org$genes)
 
-diff_organoids <- list(g1, g2, g3, g4, g5, g6)
-names(diff_organoids) <- com
-diff_organoids <- lapply(diff_organoids, function(x, meta){
+diff_organoids_complete <- list(g1, g2, g3, g4, g5, g6)
+names(diff_organoids_complete) <- com
+diff_organoids <- lapply(diff_organoids_complete, function(x, meta){
   diff <- names(x)[x != ""]
   meta[, 2, drop = TRUE][meta$genes %in% diff]
 }, meta = meta_genes_excel_org)
@@ -179,15 +180,17 @@ g_colon <- g[g$ensembl %in% g_organoids, ]
 rna_colon_org <- rna_colon[g_colon$ensembl_ver, ]
 rownames(rna_colon_org) <- g_colon$ensembl
 
+col_ann <- list(Ulcers = c("yes" = "red", "no" = "green"),
+                Responder = c("R" = "pink", "NR" = "black"),
+                IBD = c("UC" = "darkgreen", "CD" = "blue", "ctrl" = "lightblue"),
+                week = c("0" = "brown", "14" = "blue", "46" = "darkblue"),
+                Week = c("0" = "brown", "14/46" = "blue"))
+
+# * GSVA ####
 gsva_colon <- gsva(as.matrix(rna_colon_org), diff_organoids)
 
 db_colon <- arrange(db_colon, Responder, Week, Ulcers, IBD, Gender)
 
-col_ann <- list(Ulcers = c("yes" = "red", "no" = "green"),
-                Responder = c("R" = "pink", "NR" = "black"),
-                IBD = c("UC" = "darkgreen", "CD" = "blue"),
-                week = c("0" = "brown", "14" = "blue", "46" = "darkblue"),
-                Week = c("0" = "brown", "14/46" = "blue"))
 top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[, c("Ulcers", "IBD", "Responder")]),
                              col = col_ann)
 png("Figures/heatmap_GSVA_antiTNF_colon_all_genes_organoids.png")
@@ -221,7 +224,7 @@ Heatmap(gsva_colon[ , db_colon$Sample_id[db_colon$IBD == "CD"]],
 dev.off()
 
 
-
+# * All genes ####
 # On 2021/06/09 Summarize but not using GSVA plot every gene that is present
 db_colon <- arrange(db_colon, week, Ulcers, IBD, Responder, Gender)
 
@@ -244,3 +247,106 @@ Heatmap(rna_colon_org[ , db_colon$Sample_id[db_colon$IBD == "CD"]],
         top_annotation = top_ann, column_title = "Colon CD w0",
         name = "norm. expr.")
 dev.off()
+
+# On 2021/06/10 reminder to make a heatmap of w0 and controls with the organoids genes
+png("Figures/heatmap_antiTNF_colon_cd_w0_ctrls_genes_organoids.png")
+db_colon <- arrange(db_colon, IBD, Ulcers)
+keep_samples_cd <- db_colon$IBD %in% c("CD", "ctrl")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[keep_samples_cd, c("Ulcers", "IBD")]),
+                             col = col_ann)
+Heatmap(rna_colon_org[ , db_colon$Sample_id[keep_samples_cd]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE, show_row_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon CD w0 or controls",
+        name = "norm. expr.")
+dev.off()
+
+norm_colon_cd_ctrl <- rna_colon[, match(db_colon$Sample_id[keep_samples_cd], colnames(rna_colon))]
+design <- model.matrix(~Week, data = db_colon[keep_samples_cd, ])
+fit1 <- lmFit(norm_colon_cd_ctrl, design)
+eb1 <- eBayes(fit1)
+plotSA(fit1, main = "Final model: Mean-variance trend")
+tt <- topTable(eb1, number = Inf, coef = 2)
+tt_g <- merge(tt, g, by.x = "row.names", by.y = "ensembl_ver")
+tt_g_organoids_cd <- tt_g[tt_g$ensembl %in% g_organoids, ]
+diff_cd <- categ_fc(tt_g_organoids_cd$P.Value, adj.p.val = tt_g_organoids_cd$adj.P.Val,
+         FC = gtools::logratio2foldchange(-tt_g_organoids_cd$logFC))
+names(diff_cd) <- tt_g_organoids_cd$ensembl
+
+
+diff_organoids_sign <- lapply(diff_organoids_complete, function(x, meta){
+  diff <- x[x != ""]
+  names(diff) <- meta$Ensembl[match(names(diff), meta$genes)]
+  diff
+}, meta = meta_genes_excel_org)
+
+s <- unique(unlist(sapply(diff_organoids_sign, names)))
+
+
+
+
+png("Figures/heatmap_antiTNF_colon_UC_w0_ctrls_genes_organoids.png")
+db_colon <- arrange(db_colon, IBD, Ulcers)
+keep_samples_uc <- db_colon$IBD %in% c("UC", "ctrl")
+top_ann <- HeatmapAnnotation(df = as.data.frame(db_colon[keep_samples_uc, c("Ulcers", "IBD")]),
+                             col = col_ann)
+Heatmap(rna_colon_org[ , db_colon$Sample_id[keep_samples_uc]],
+        cluster_columns = FALSE, cluster_rows = TRUE, show_row_dend = FALSE,
+        show_column_names = FALSE, show_row_names = FALSE,
+        top_annotation = top_ann, column_title = "Colon UC w0 or controls",
+        name = "norm. expr.")
+dev.off()
+
+norm_colon_uc_ctrl <- rna_colon[, match(db_colon$Sample_id[keep_samples_uc], colnames(rna_colon))]
+design <- model.matrix(~Week, data = db_colon[keep_samples_uc, ])
+contrasts <- makeContrasts(Weekctrl-Intercept, levels = design)
+fit1 <- lmFit(norm_colon_uc_ctrl, design)
+eb1 <- eBayes(fit1)
+plotSA(fit1, main = "Final model: Mean-variance trend")
+tt2 <- topTable(eb1, number = Inf, coef = 2)
+tt_g <- merge(tt2, g, by.x = "row.names", by.y = "ensembl_ver")
+tt_g_organoids_uc <- tt_g[tt_g$ensembl %in% g_organoids, ]
+diff_uc <- categ_fc(tt_g_organoids_uc$P.Value, adj.p.val = tt_g_organoids_uc$adj.P.Val,
+         FC = gtools::logratio2foldchange(-tt_g_organoids_uc$logFC))
+names(diff_uc) <- tt_g_organoids_uc$ensembl
+
+m_genes <- meta_genes_excel_org[match(rownames(sign_comp_org), meta_genes_excel_org$Ensembl), ]
+diff_antiTNF <- cbind(diff_uc, diff_cd)
+diff_antiTNF <- diff_antiTNF[match(rownames(sign_comp_org), rownames(diff_antiTNF)), ]
+
+comp_all <- cbind(m_genes[, 2:3], diff_antiTNF, sign_comp_org)
+saveRDS(comp_all, "output/w0_vs_ctrl_biopsies_genes_orgnoids.RDS")
+writexl::write_xlsx(comp_all, path = "output/w0_vs_ctrl_biopsies_genes_orgnoids.xlsx")
+
+
+# Genes shared bx organoids ####
+s <- sapply(com, function(x, comp_all) {
+  comp_co <- as.character(comp_all[, x])
+  diff_co <- nzchar(comp_co) & !is.na(comp_co)
+  sub_m <- comp_all[diff_co, ]
+
+  comp_uc <- as.character(sub_m[, "diff_uc"])
+  comp_cd <- as.character(sub_m[, "diff_cd"])
+
+  diff_uc <- nzchar(comp_uc) & !is.na(comp_uc)
+  diff_cd <- nzchar(comp_cd) & !is.na(comp_cd)
+
+  up <- sum(startsWith(comp_uc, "U") & startsWith(as.character(sub_m[, x]), "U"), na.rm = TRUE)
+  dw <- sum(startsWith(comp_uc, "D") & startsWith(as.character(sub_m[, x]), "D"), na.rm = TRUE)
+  diff_co_uc <- sum(up, dw)
+  up <- sum(startsWith(comp_cd, "U") & startsWith(as.character(sub_m[, x]), "U"), na.rm = TRUE)
+  dw <- sum(startsWith(comp_cd, "D") & startsWith(as.character(sub_m[, x]), "D"), na.rm = TRUE)
+  diff_co_cd <- sum(up, dw)
+  c(genes = sum(diff_co),
+    UC = sum(diff_uc),
+    CD = sum(diff_cd),
+    UC_shared_perc =  sum(diff_uc)/sum(diff_co)*100,
+    CD_shared_perc =  sum(diff_cd)/sum(diff_co)*100,
+    UC_similar_perc = diff_co_uc/sum(diff_uc)*100,
+    CD_similar_perc = diff_co_cd/sum(diff_cd)*100
+  )
+}, comp_all = comp_all)
+s2 <- t(s)
+s2 <- as.data.frame(s2)
+s2$comparative <- rownames(s2)
+writexl::write_xlsx(s2, "output/resum_gens_org_biopsies.xlsx")

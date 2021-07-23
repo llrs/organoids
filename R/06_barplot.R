@@ -11,14 +11,6 @@ counts <- readRDS("output/counts.RDS")
 comp <- readRDS("output/samples_comparisons.RDS")
 meta <- readRDS("output/pheno.RDS")
 
-# * Create matrix for significance ####
-diff <- matrix(dimnames = dimnames(res$fc), ncol = ncol(res$fc), nrow = nrow(res$fc))
-diff[res$p < 0.05 & res$fc > 0] <- "UP"
-diff[res$p < 0.05 & res$fc < 0] <- "DW"
-diff[res$fdr < 0.05 & res$fc > 0] <- "UUP"
-diff[res$fdr < 0.05 & res$fc < 0] <- "DDW"
-colnames(diff) <- gsub("fc_", "", colnames(diff))
-
 # Select samples
 samples <- meta$`Macrogen SAMPLE NAME`[(!is.na(meta$PB) & is.na(meta$estimul)) | meta$cond == "PBS"]
 
@@ -104,7 +96,8 @@ counts_df %>%
   ggboxplot(x = "cond", y = "value", facet.by = "name.y", color = "name.y", scales = "free") +
   rotate_x_text(angle = 60) +
   stat_pvalue_manual(stat.test2, label = "p.formatted", vjust = 1.5) +
-  labs(fill = "Gene", y = "Normalized expression", x = element_blank()) +
+  labs(fill = "Gene", y = "Normalized expression", x = element_blank(), col = "Gene") +
+  guides(col = FALSE) +
   theme_minimal() +
   theme(legend.position = "bottom", legend.direction = "horizontal")
 ggsave("Figures/bars_genes_signif_macros.png")
