@@ -190,3 +190,22 @@ for (e in unique(meta3$e2)) {
 }
 dev.off()
 
+# PCA added on 25/08/2021
+pdf("Figures/PCAs_estimul_PB_estímul_PBS_PBS_sol.pdf")
+meta2$e2 <- sub("\\+PBS", "", meta2$estimul)
+meta2$e2[meta2$e2 == "" ] <- NA
+keep <- (meta2$PBS | !is.na(meta2$PB)) & !(meta2$PBS & is.na(meta2$estimul)) & !(!is.na(meta2$PB) & is.na(meta2$estimul))
+plotPCA(tsc[keep, ], meta2$cond[keep]) + labs(title = "Without sample effect")
+meta3 <- meta2[keep, ]
+meta3$name <- meta3$`Macrogen SAMPLE NAME`
+
+for (e in unique(meta3$e2)) {
+  keep2 <- meta3$e2 %in% e | meta3$e2 %in% "PBS"
+  if (e == "PBS") {
+    next
+  }
+  a <- plotPCA(tsc[meta3$name[keep2], ], meta3$cond[keep2]) +
+    labs(title = paste("Without sample effect, ", e), col = "Condició")
+  print(a)
+}
+dev.off()
